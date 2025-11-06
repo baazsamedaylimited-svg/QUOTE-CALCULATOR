@@ -1,92 +1,70 @@
-document.getElementById("calculateBtn").addEventListener("click", function() {
+function calculateQuote() {
   const vehicle = document.getElementById("vehicle").value;
   const miles = parseFloat(document.getElementById("miles").value);
-  const deadZone = document.querySelector('input[name="deadZone"]:checked').value;
-  const returnTrip = document.querySelector('input[name="returnTrip"]:checked').value;
+  const deadzone = document.querySelector('input[name="deadzone"]:checked').value;
   const deadMiles = document.getElementById("deadMiles").value;
-  const resultDiv = document.getElementById("result");
+  const returnTrip = document.querySelector('input[name="return"]:checked').value;
+  const backload = document.querySelector('input[name="backload"]:checked').value;
 
-  if (!vehicle || !miles) {
-    resultDiv.textContent = "⚠️ Please select a vehicle and enter miles.";
+  if (!vehicle || isNaN(miles) || miles <= 0) {
+    document.getElementById("result").innerText = "⚠️ Please enter valid details.";
     return;
   }
 
-  let total = 0;
   let rate = 0;
-  let fixedMin = 0;
-  let fixedMax = 0;
-  let details = "";
+  let baseRate = 0;
+  let message = "";
 
-  // === Base Pricing Logic ===
-  if (vehicle === "luton") {
-    if (miles <= 30) {
-      fixedMin = 75;
-      fixedMax = 95;
-      total = adjustByDeadMiles(getAverage(fixedMin, fixedMax), deadMiles, 10);
-      details = `Short trip range £${fixedMin}–£${fixedMax}`;
-    } else {
-      rate = deadZone === "yes" ? 1.8 : 1.5;
-      total = miles * rate;
-      total = adjustByDeadMiles(total, deadMiles, 15);
-      details = `Rate £${rate}/mile`;
-    }
+  // Vehicle base rates
+  if (vehicle === "luton") baseRate = 1.5;
+  else if (vehicle === "7.5t") baseRate = 3.0;
+  else if (vehicle === "18t" || vehicle === "26t") baseRate = 3.7;
+
+  // Adjust if Dead Zone
+  if (deadzone === "yes") {
+    if (vehicle === "luton") baseRate = 1.8;
+    else if (vehicle === "7.5t") baseRate = 3.5;
+    else baseRate = 4.5;
+    message += "Dead Zone applied. ";
   }
 
-  if (vehicle === "7.5t") {
-    if (miles <= 30) {
-      fixedMin = 165;
-      fixedMax = 210;
-      total = adjustByDeadMiles(getAverage(fixedMin, fixedMax), deadMiles, 20);
-      details = `Short trip range £${fixedMin}–£${fixedMax}`;
-    } else if (miles <= 100) {
-      fixedMin = 275;
-      fixedMax = 325;
-      total = adjustByDeadMiles(getAverage(fixedMin, fixedMax), deadMiles, 25);
-      details = `Medium trip range £${fixedMin}–£${fixedMax}`;
-    } else {
-      rate = deadZone === "yes" ? 3.5 : 3.0;
-      total = miles * rate;
-      total = adjustByDeadMiles(total, deadMiles, 30);
-      details = `Rate £${rate}/mile`;
-    }
+  // Fixed short distance prices
+  if (miles <= 30) {
+    if (vehicle === "luton") rate = 85; // average 75-95
+    else if (vehicle === "7.5t") rate = 190; // average 165-210
+    else if (vehicle === "18t" || vehicle === "26t") rate = 300; // 280-325
+  } else {
+    rate = baseRate * miles;
   }
 
-  if (vehicle === "18t" || vehicle === "26t") {
-    if (miles <= 30) {
-      fixedMin = 280;
-      fixedMax = 325;
-      total = adjustByDeadMiles(getAverage(fixedMin, fixedMax), deadMiles, 30);
-      details = `Short trip range £${fixedMin}–£${fixedMax}`;
-    } else {
-      rate = deadZone === "yes" ? 4.5 : 3.7;
-      total = miles * rate;
-      total = adjustByDeadMiles(total, deadMiles, 40);
-      details = `Rate £${rate}/mile`;
-    }
+  // Adjust for Dead Miles
+  if (deadMiles === "short") rate -= 10;
+  else if (deadMiles === "far") rate += 20;
+
+  // Backload Calculation
+  if (backload === "yes") {
+    message += "Backload pricing applied. ";
+    if (deadMiles === "short") rate = miles * 2.2;
+    else rate = miles * 2.5;
   }
 
-  // === Return Trip Adjustment (adds £2.5 per mile) ===
-  if (returnTrip === "yes") {
-    const returnCharge = miles * 2.5;
-    total += returnCharge;
-    details += ` + Return Trip (£2.5/mile = £${returnCharge.toFixed(2)})`;
+  // Long distance adjustment (>210 miles)
+  if (miles > 210 && backload === "no") {
+    message += "Long distance rate applied. ";
+    rate = miles * (Math.random() * (2.7 - 2.5) + 2.5); // random 2.5–2.7
   }
 
-  const formatted = total.toFixed(2);
-  resultDiv.innerHTML = `
-    💷 <strong>Estimated Quote:</strong> £${formatted}<br>
-    <small>${vehicle.toUpperCase()} • ${miles} miles • ${deadZone === "yes" ? "Dead Zone" : "Normal"} • ${deadMiles.toUpperCase()} Collection</small><br>
-    <small>${details}</small>
-  `;
-});
+  // Return Trip logic
+  if (returnTrip === "yes" && backload === "no") {
+    rate = miles * 2.5;
+    message += "Return trip rate applied. ";
+  }
 
-function getAverage(min, max) {
-  return (min + max) / 2;
-}
+  // Round to nearest £5
+  rate = Math.round(rate / 5) * 5;
 
-// Adjust price by collection distance (dead miles)
-function adjustByDeadMiles(price, level, adjust) {
-  if (level === "near") return price - adjust;
-  if (level === "far") return price + adjust;
-  return price;
+  // Show result
+  document.getElementById("result").innerHTML =
+    `<p>💷 Estimated Price: <b>£${rate}</b></p>
+     <small>${message}</small>`;
 }
