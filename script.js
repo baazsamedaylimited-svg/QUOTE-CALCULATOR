@@ -11,11 +11,10 @@ function calculateQuote() {
     return;
   }
 
-  let ratePerMile = 0;
-  let basePrice = 0;
-  let priceRange = [0, 0];
+  let price = 0;
 
-  // 🔹 Base rate depending on vehicle type and dead zone
+  // 🔹 Base per-mile rate setup
+  let ratePerMile = 0;
   if (isDeadZone) {
     if (vehicle === "luton") ratePerMile = 1.8;
     else if (vehicle === "7.5t") ratePerMile = 3.5;
@@ -26,54 +25,50 @@ function calculateQuote() {
     else ratePerMile = 3.7;
   }
 
-  // 🔹 Fixed prices for short distances (0–30 miles)
+  // 🔹 For 0–30 miles fixed price
   if (miles <= 30) {
-    if (vehicle === "luton") priceRange = [75, 95];
-    else if (vehicle === "7.5t") priceRange = [165, 210];
-    else priceRange = [280, 325];
-    basePrice = randomInRange(priceRange);
+    if (vehicle === "luton") price = 85; // midpoint 75–95
+    else if (vehicle === "7.5t") price = 185; // midpoint 165–210
+    else price = 300; // midpoint 280–325
   }
 
-  // 🔹 100–130 mile jobs special range
+  // 🔹 For 100–130 miles
   else if (miles >= 100 && miles <= 130) {
-    if (vehicle === "7.5t") priceRange = [320, 345];
-    else if (vehicle === "luton") priceRange = [285, 325];
-    else priceRange = [400, 460];
-    basePrice = randomInRange(priceRange);
+    if (vehicle === "luton") price = 305;
+    else if (vehicle === "7.5t") price = 335;
+    else price = 430;
 
-    // Add £25 only if far dead miles and miles <= 130
+    // Add £25 only when "far" and ≤130
     if (deadMiles === "far" && miles <= 130) {
-      basePrice += 25;
+      price += 25;
     }
   }
 
-  // 🔹 Jobs above 130 miles – normal rate, no surcharge
+  // 🔹 For 130+ miles
   else {
-    if (isBackload) {
-      ratePerMile = randomInRange([2.2, 2.5]);
-    } else if (miles > 210) {
-      ratePerMile = randomInRange([2.5, 2.7]);
-    }
-    basePrice = miles * ratePerMile;
+    if (isBackload) ratePerMile = 2.35; // avg 2.2–2.5
+    else if (miles > 210) ratePerMile = 2.6; // avg 2.5–2.7
+    price = miles * ratePerMile;
   }
 
-  // 🔹 Return trip calculation
+  // 🔹 Return trip logic
   if (isReturnTrip) {
-    basePrice = miles * 2.5 * 2; // return = double miles × 2.5 rate
+    price = miles * 2.4 * 2;
   }
 
-  // 🔹 Small random variation (+/- up to 10)
-  const randomVariation = randomInRange([-10, 10]);
-  const finalPrice = Math.max(0, Math.round(basePrice + randomVariation));
+  // 🔹 Small, fixed variation (stable look)
+  const variation = getStableVariation(miles, vehicle);
+  const finalPrice = Math.round(price + variation);
 
-  document.getElementById("result").innerHTML =
-    `<strong>Estimated Quote:</strong> £${finalPrice}`;
+  document.getElementById("result").innerHTML = `
+    <div class="quote-box">
+      <strong>Estimated Quote:</strong> £${finalPrice}
+    </div>
+  `;
 }
 
-function randomInRange(range) {
-  if (Array.isArray(range)) {
-    const [min, max] = range;
-    return Math.random() * (max - min) + min;
-  }
-  return range;
+// 🔸 Stable variation based on simple hash, so price stays same on repeat clicks
+function getStableVariation(miles, vehicle) {
+  const hash = (miles + vehicle.length * 7) % 20 - 10; // -10 to +10
+  return hash;
 }
