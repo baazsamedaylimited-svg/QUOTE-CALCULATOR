@@ -53,7 +53,7 @@ function calculateQuote() {
 
   // 🔹 Return trip logic
   if (isReturnTrip) {
-    price = miles * 2.4 * 2;
+    price = miles * 2.5 * 2;
   }
 
   // 🔹 Small, fixed variation (stable look)
