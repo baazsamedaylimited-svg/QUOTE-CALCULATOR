@@ -2,10 +2,9 @@ function calculateQuote() {
   const vehicle = document.getElementById("vehicle").value;
   const miles = parseFloat(document.getElementById("miles").value);
   const deadzone = document.querySelector('input[name="deadzone"]:checked').value;
-  const deadMiles = document.getElementById("deadMiles").value; // "short" | "medium" | "far"
+  const deadMiles = document.getElementById("deadMiles").value;
   const returnTrip = document.querySelector('input[name="return"]:checked').value;
   const backload = document.querySelector('input[name="backload"]:checked').value;
-
   const out = document.getElementById("result");
 
   if (!vehicle || isNaN(miles) || miles <= 0) {
@@ -13,104 +12,64 @@ function calculateQuote() {
     return;
   }
 
-  // Helper: random integer between min and max inclusive
-  function randInt(min, max) {
-    return Math.floor(Math.random() * (max - min + 1)) + min;
-  }
-
-  // Helper: clamp value between min and max
-  function clamp(v, a, b) {
-    return Math.max(a, Math.min(b, v));
-  }
-
-  // Base price calculation variables
-  let baseRate = 0;
-  let price = 0;
+  let rate = 0;
+  let basePrice = 0;
+  let minFixed = 0;
   let details = [];
 
-  // 1) Choose base per-mile rate depending on vehicle and deadzone
-  if (vehicle === "luton") baseRate = deadzone === "yes" ? 1.8 : 1.5;
-  else if (vehicle === "7.5t") baseRate = deadzone === "yes" ? 3.5 : 3.0;
-  else if (vehicle === "18t" || vehicle === "26t") baseRate = deadzone === "yes" ? 4.5 : 3.7;
+  // Base per-mile rates
+  if (vehicle === "luton") rate = deadzone === "yes" ? 1.8 : 1.5;
+  if (vehicle === "7.5t") rate = deadzone === "yes" ? 3.5 : 3.0;
+  if (vehicle === "18t" || vehicle === "26t") rate = deadzone === "yes" ? 4.5 : 3.7;
 
-  // 2) Short-distance fixed prices (under or equal 30 miles)
+  // Short-distance fixed prices
   if (miles <= 30) {
-    if (vehicle === "luton") {
-      // fixed range 75-95 => take midpoint
-      price = 85;
-      details.push("Luton short fixed (75–95)");
-    } else if (vehicle === "7.5t") {
-      price = 187.5; // midpoint of 165-210
-      details.push("7.5T short fixed (165–210)");
-    } else if (vehicle === "18t" || vehicle === "26t") {
-      price = 302.5; // midpoint of 280-325
-      details.push("18T/26T short fixed (280–325)");
-    }
+    if (vehicle === "luton") { basePrice = 85; minFixed = 75; details.push("Luton short fixed (£75–95)"); }
+    if (vehicle === "7.5t") { basePrice = 187.5; minFixed = 165; details.push("7.5T short fixed (£165–210)"); }
+    if (vehicle === "18t" || vehicle === "26t") { basePrice = 302.5; minFixed = 280; details.push("18T/26T short fixed (£280–325)"); }
   } else {
-    // 3) Long-distance rules
+    // Long distance or backload or >210 miles
     if (backload === "yes") {
-      // Backload special rates: near -> 2.2, else 2.5
-      const backloadRate = (deadMiles === "short") ? 2.2 : 2.5;
-      price = miles * backloadRate;
-      details.push(`Backload rate £${backloadRate}/mile`);
+      rate = (deadMiles === "short") ? 2.2 : 2.5;
+      details.push(`Backload rate £${rate}/mile`);
     } else if (miles > 210) {
-      // Long job special rate 2.5 - 2.7 -> pick midpoint 2.6
-      const longRate = 2.6;
-      price = miles * longRate;
-      details.push(`Long-distance rate £${longRate}/mile`);
-    } else {
-      // Normal per-mile price
-      price = miles * baseRate;
-      details.push(`Base rate £${baseRate}/mile`);
+      rate = 2.6; // Long job flat rate
+      details.push(`Long-distance rate £${rate}/mile`);
     }
+    basePrice = miles * rate;
   }
 
-  // 4) RETURN TRIP: add £2.5 * miles (extra charge) if selected
+  // Return Trip addition
   let returnExtra = 0;
   if (returnTrip === "yes") {
     returnExtra = miles * 2.5;
-    details.push(`Return extra £2.5/mile = £${returnExtra.toFixed(2)}`);
+    details.push(`Return trip extra £2.5/mile = £${returnExtra.toFixed(2)}`);
   }
 
-  // 5) Dead-miles adjustment: small variance between -10..+10 depending on near/medium/far
-  //    - near: decrease by 1..10
-  //    - medium: +/- 1..5
-  //    - far: increase by 1..10
-  let deadAdj = 0;
-  if (deadMiles === "short") {
-    deadAdj = -randInt(1, 10);
-    details.push(`Dead miles (near) adjustment: ${deadAdj}`);
-  } else if (deadMiles === "medium") {
-    deadAdj = randInt(-5, 5);
-    if (deadAdj >= 0) details.push(`Dead miles (medium) +${deadAdj}`);
-    else details.push(`Dead miles (medium) ${deadAdj}`);
-  } else { // far
-    deadAdj = randInt(1, 10);
-    details.push(`Dead miles (far) adjustment: +${deadAdj}`);
-  }
+  // Dead Miles adjustment — no randomness now
+  let adjPercent = 0;
+  if (deadMiles === "short") adjPercent = -0.05;      // -5%
+  else if (deadMiles === "far") adjPercent = 0.07;    // +7%
+  else adjPercent = 0;                                // no change
 
-  // Combine base price + return extra + deadAdj
-  let rawTotal = price + returnExtra + deadAdj;
+  let adjusted = basePrice * (1 + adjPercent);
 
-  // 6) Safety: ensure we don't drop below minimal sensible price for that vehicle/short trip
-  //    We'll enforce minimums based on earlier fixed minima:
-  let minAllowed = 0;
-  if (vehicle === "luton") minAllowed = 60;       // don't go lower than £60
-  if (vehicle === "7.5t") minAllowed = 140;       // don't go lower than £140
-  if (vehicle === "18t" || vehicle === "26t") minAllowed = 250;
+  // Total
+  let total = adjusted + returnExtra;
 
-  rawTotal = clamp(rawTotal, minAllowed, Number.POSITIVE_INFINITY);
+  // Apply minimums
+  if (vehicle === "luton") total = Math.max(total, 75);
+  if (vehicle === "7.5t") total = Math.max(total, 165);
+  if (vehicle === "18t" || vehicle === "26t") total = Math.max(total, 280);
 
-  // 7) Round to nearest whole £ (or to nearest 5 if you prefer)
-  const finalTotal = Math.round(rawTotal); // round to nearest £
-  // const finalTotal = Math.round(rawTotal / 5) * 5; // nearest £5 (optional)
+  // Round to nearest £5
+  total = Math.round(total / 5) * 5;
 
-  // 8) Output
   out.innerHTML = `
     <div style="text-align:left">
-      <p>💷 <strong>Estimated Price:</strong> £${finalTotal}</p>
-      <p style="color:#dfeffd">${details.join(" • ")}</p>
-      <p style="font-size:0.9rem;color:#cfe8ff">Note: price includes a small ±£1–£10 adjustment based on collection distance.</p>
+      <p>💷 <strong>Estimated Price:</strong> £${total}</p>
+      <p style="color:#cfe8ff">${details.join(" • ")}</p>
+      <p style="font-size:0.9rem;color:#ccc">Note: consistent pricing — same inputs = same quote.</p>
     </div>
   `;
 }
