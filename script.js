@@ -22,7 +22,7 @@ function calculateQuote() {
   if (vehicle === "18t" || vehicle === "26t") rate = deadzone === "yes" ? 4.5 : 3.7;
 
   // === Short distance (<=30 miles) ===
-  if (miles <= 30) {
+  if (miles <= 50) {
     if (vehicle === "luton") basePrice = 85;
     else if (vehicle === "7.5t") basePrice = 187.5;
     else basePrice = 302.5;
@@ -90,3 +90,4 @@ function calculateQuote() {
     </div>
   `;
 }
+
