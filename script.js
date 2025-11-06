@@ -1,10 +1,10 @@
 function calculateQuote() {
   const vehicle = document.getElementById("vehicle").value;
   const miles = parseFloat(document.getElementById("miles").value);
-  const deadzone = document.querySelector('input[name="deadzone"]:checked').value;
+  const deadzone = document.querySelector('input[name="deadzone"]:checked')?.value;
   const deadMiles = document.getElementById("deadMiles").value; // "near" or "far"
-  const returnTrip = document.querySelector('input[name="return"]:checked').value;
-  const backload = document.querySelector('input[name="backload"]:checked').value;
+  const returnTrip = document.querySelector('input[name="return"]:checked')?.value;
+  const backload = document.querySelector('input[name="backload"]:checked')?.value;
   const out = document.getElementById("result");
 
   if (!vehicle || isNaN(miles) || miles <= 0) {
@@ -14,12 +14,12 @@ function calculateQuote() {
 
   let rate = 0;
   let basePrice = 0;
-  let details = [];
+  const details = [];
 
   // === Base per-mile rates ===
   if (vehicle === "luton") rate = deadzone === "yes" ? 1.8 : 1.5;
-  if (vehicle === "7.5t") rate = deadzone === "yes" ? 3.5 : 3.0;
-  if (vehicle === "18t" || vehicle === "26t") rate = deadzone === "yes" ? 4.5 : 3.7;
+  else if (vehicle === "7.5t") rate = deadzone === "yes" ? 3.5 : 3.0;
+  else if (vehicle === "18t" || vehicle === "26t") rate = deadzone === "yes" ? 4.5 : 3.7;
 
   // === Short distance (<=30 miles) ===
   if (miles <= 30) {
@@ -31,9 +31,7 @@ function calculateQuote() {
 
   // === 100–130 mile special band ===
   else if (miles > 100 && miles <= 130) {
-    let base = 320;
-    if (deadMiles === "far") base = 345;
-    basePrice = base;
+    basePrice = deadMiles === "far" ? 345 : 320;
     details.push("100–130 mile special rate (£320–£345)");
   }
 
@@ -51,7 +49,7 @@ function calculateQuote() {
     details.push(`Backload rate £${rate}/mile`);
   }
 
-  // === Normal calculation ===
+  // === Normal mid-distance calculation ===
   else {
     basePrice = miles * rate;
     details.push(`Base rate £${rate}/mile`);
@@ -64,30 +62,30 @@ function calculateQuote() {
     details.push(`Return trip extra £2.5/mile = £${returnExtra.toFixed(2)}`);
   }
 
-  // === Dead Miles adjustment ===
-  let adjPercent = 0;
-  if (deadMiles === "near") adjPercent = -0.05; // -5%
-  if (deadMiles === "far") adjPercent = 0.07;   // +7%
-  let adjusted = basePrice * (1 + adjPercent);
+  // === Dead Miles adjustment (5% cheaper if near, 7% higher if far) ===
+  let adjustedPrice = basePrice;
+  if (deadMiles === "near") adjustedPrice *= 0.95;
+  else if (deadMiles === "far") adjustedPrice *= 1.07;
 
-  // === Extra £25 for far collection and miles >50 ===
+  // === £25 surcharge only if far AND miles between 50–130 ===
   let extraFarCharge = 0;
-  if (deadMiles === "far" && miles > 50) {
+  if (deadMiles === "far" && miles > 50 && miles <= 130) {
     extraFarCharge = 25;
     details.push("+£25 surcharge (Far collection over 50 miles)");
   }
 
-  // === Final total ===
-  let total = adjusted + returnExtra + extraFarCharge;
+  // === Total calculation ===
+  let total = adjustedPrice + returnExtra + extraFarCharge;
 
-  // Minimum safeguard per vehicle
-  if (vehicle === "luton") total = Math.max(total, 75);
-  if (vehicle === "7.5t") total = Math.max(total, 165);
-  if (vehicle === "18t" || vehicle === "26t") total = Math.max(total, 280);
+  // === Minimum safeguard per vehicle ===
+  if (vehicle === "luton" && total < 75) total = 75;
+  else if (vehicle === "7.5t" && total < 165) total = 165;
+  else if ((vehicle === "18t" || vehicle === "26t") && total < 280) total = 280;
 
-  // Round to nearest £5
+  // === Round to nearest £5 ===
   total = Math.round(total / 5) * 5;
 
+  // === Output ===
   out.innerHTML = `
     <div style="text-align:left">
       <p>💷 <strong>Estimated Price:</strong> £${total}</p>
